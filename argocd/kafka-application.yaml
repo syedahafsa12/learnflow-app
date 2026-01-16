@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka-infrastructure
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/syedahafsa12/learnflow-app.git
+    targetRevision: main
+    path: k8s
+    directory:
+      include: 'kafka-*.yaml'
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
