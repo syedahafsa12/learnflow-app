@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_NAME}}
+    tier: frontend
+spec:
+  replicas: {{REPLICAS}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{APP_NAME}}
+  template:
+    metadata:
+      labels:
+        app: {{APP_NAME}}
+        tier: frontend
+    spec:
+      containers:
+      - name: nextjs
+        image: {{IMAGE_NAME}}
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        resources:
+          requests:
+            memory: "{{MEMORY_REQUEST}}"
+            cpu: "{{CPU_REQUEST}}"
+          limits:
+            memory: "{{MEMORY_LIMIT}}"
+            cpu: "{{CPU_LIMIT}}"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{APP_NAME}}-service
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_NAME}}
+    tier: frontend
+spec:
+  selector:
+    app: {{APP_NAME}}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      name: http
+  type: {{SERVICE_TYPE}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{APP_NAME}}-ingress
+  namespace: {{NAMESPACE}}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: {{HOSTNAME}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{APP_NAME}}-service
+            port:
+              number: 80

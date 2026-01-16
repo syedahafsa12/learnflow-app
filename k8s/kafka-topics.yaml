@@ -1,0 +1,88 @@
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: learning.query
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: learning.response
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: learning.progress
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: learning.struggle
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: code.execution
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: code.review
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: exercise.generated
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: exercise.attempt
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 3
+  replicas: 1
