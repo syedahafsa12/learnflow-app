@@ -1,14 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Dict, Any, List, Optional
 import logging
 import os
-from typing import Dict, Any, List
-import asyncio
 
-# Initialize FastAPI app
 app = FastAPI(title="Concepts Agent", description="Explains Python concepts with examples", version="1.0.0")
-
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -16,121 +12,109 @@ class ConceptRequest(BaseModel):
     concept: str
     difficulty_level: str = "intermediate"  # beginner, intermediate, advanced
     user_context: Dict[str, Any] = {}
-    examples_requested: bool = True
 
 class ConceptResponse(BaseModel):
     concept: str
     explanation: str
     examples: List[str]
+    common_mistakes: List[str]
     related_concepts: List[str]
-    difficulty_level: str
-    code_samples: List[str]
+    difficulty: str
 
-# Knowledge base of Python concepts
-CONCEPT_KNOWLEDGE_BASE = {
-    "variables": {
-        "beginner": {
-            "explanation": "Variables are names that store values in Python. Think of them as labeled boxes where you can store information.",
-            "examples": [
-                "Creating a variable: name = 'Alice'",
-                "Assigning a number: age = 25",
-                "Updating a variable: age = age + 1"
-            ],
-            "code_samples": [
-                "# Variable assignment\nname = 'Alice'\nage = 25\nprint(f'Hello {name}, you are {age} years old')"
-            ]
-        },
-        "intermediate": {
-            "explanation": "Variables in Python are references to objects in memory. They follow dynamic typing and can hold any type of value.",
-            "examples": [
-                "Dynamic typing: a variable can change types",
-                "Variable scope: local vs global",
-                "Variable naming conventions: snake_case"
-            ],
-            "code_samples": [
-                "# Dynamic typing\nx = 10  # integer\nx = 'hello'  # string\nx = [1, 2, 3]  # list\n\n# Variable scope\nname = 'global'\ndef func():\n    name = 'local'\n    return name"
-            ]
-        },
-        "advanced": {
-            "explanation": "Python variables are references to objects. Understanding mutability, object identity, and scope resolution is crucial.",
-            "examples": [
-                "Mutable vs immutable objects",
-                "Variable binding and closures",
-                "Global and nonlocal keywords"
-            ],
-            "code_samples": [
-                "# Mutability\noriginal_list = [1, 2, 3]\ncopied_list = original_list  # Both reference same object\ncopied_list.append(4)\nprint(original_list)  # [1, 2, 3, 4] - original changed!\n\n# Identity check\nlist1 = [1, 2, 3]\nlist2 = [1, 2, 3]\nprint(list1 is list2)  # False - different objects\nprint(list1 == list2)  # True - same content"
-            ]
-        }
-    },
+# Knowledge base for Python concepts
+CONCEPT_DATABASE = {
     "loops": {
         "beginner": {
-            "explanation": "Loops allow you to repeat code multiple times. Python has two types: for loops and while loops.",
+            "explanation": "Loops in Python allow you to repeat a block of code multiple times. The two main types are 'for' loops (for iterating over a sequence) and 'while' loops (for repeating until a condition is false).",
             "examples": [
-                "For loop: iterate over a sequence",
-                "While loop: repeat while condition is true",
-                "Range function: generate sequences of numbers"
+                "# For loop example\nfor i in range(5):\n    print(i)  # Prints 0, 1, 2, 3, 4",
+                "# While loop example\ncount = 0\nwhile count < 5:\n    print(count)\n    count += 1",
+                "# Loop through a list\nfruits = ['apple', 'banana', 'cherry']\nfor fruit in fruits:\n    print(fruit)"
             ],
-            "code_samples": [
-                "# For loop\nfruits = ['apple', 'banana', 'cherry']\nfor fruit in fruits:\n    print(fruit)\n\n# While loop\ncount = 0\nwhile count < 5:\n    print(count)\n    count += 1"
-            ]
+            "common_mistakes": [
+                "Off-by-one errors: range(5) gives 0-4, not 1-5",
+                "Infinite loops: forgetting to increment counter in while loops",
+                "Modifying a list while iterating over it"
+            ],
+            "related_concepts": ["range() function", "break and continue statements", "list comprehensions", "enumerate()"]
         },
         "intermediate": {
-            "explanation": "Loop controls like break, continue, and else clause provide fine-grained control over loop execution.",
+            "explanation": "Loops in Python provide powerful iteration capabilities. For loops work with iterables (lists, strings, ranges), while loops continue until a condition is False. You can control loop flow with break (exit loop) and continue (skip to next iteration). Nested loops allow iteration over multi-dimensional data.",
             "examples": [
-                "Break: exit loop early",
-                "Continue: skip current iteration",
-                "Else: execute when loop completes normally"
+                "# Nested loops\nfor i in range(3):\n    for j in range(3):\n        print(f'({i}, {j})', end=' ')\n    print()  # New line after inner loop",
+                "# Loop with enumerate\nfor index, value in enumerate(['a', 'b', 'c']):\n    print(f'Index {index}: {value}')",
+                "# Loop with break and continue\nfor num in range(10):\n    if num == 3:\n        continue  # Skip 3\n    if num == 7:\n        break  # Stop at 7\n    print(num)"
             ],
-            "code_samples": [
-                "# Break and continue\nnumbers = [1, 2, 3, 4, 5]\nfor num in numbers:\n    if num == 3:\n        continue  # Skip 3\n    if num == 5:\n        break  # Stop at 5\n    print(num)\n\n# Else clause\nfor i in range(3):\n    print(i)\nelse:\n    print('Loop completed normally')"
-            ]
-        },
-        "advanced": {
-            "explanation": "Advanced looping includes list comprehensions, generator expressions, and iterator protocols.",
+            "common_mistakes": [
+                "Confusion between range(5) and range(0, 5) - they're the same",
+                "Not understanding that 'for' creates a new variable in each iteration",
+                "Forgetting that strings and lists are iterable"
+            ],
+            "related_concepts": ["iterators and generators", "list comprehensions", "while-else construct", "zip() function"]
+        }
+    },
+    "variables": {
+        "beginner": {
+            "explanation": "Variables in Python are containers that store data values. Unlike some languages, you don't need to declare a variable's type - Python figures it out automatically. You create a variable by assigning a value using the equals sign (=).",
             "examples": [
-                "List comprehensions: concise loop expressions",
-                "Generator expressions: memory-efficient iteration",
-                "Iterator protocol: __iter__ and __next__ methods"
+                "# Creating variables\nname = 'Alice'  # String\nage = 25  # Integer\nheight = 5.6  # Float\nis_student = True  # Boolean",
+                "# Variables can change type\nx = 5\nprint(x)  # 5\nx = 'hello'\nprint(x)  # hello",
+                "# Multiple assignment\na, b, c = 1, 2, 3\nprint(a, b, c)  # 1 2 3"
             ],
-            "code_samples": [
-                "# List comprehension\nnumbers = [1, 2, 3, 4, 5]\nsquares = [x**2 for x in numbers if x % 2 == 0]\n\n# Generator expression\nsum_of_squares = sum(x**2 for x in numbers if x % 2 == 0)\n\n# Nested comprehensions\nmatrix = [[j for j in range(3)] for i in range(3)]"
-            ]
+            "common_mistakes": [
+                "Using reserved keywords as variable names (like 'class', 'for', 'if')",
+                "Starting variable names with numbers (5x is invalid, x5 is valid)",
+                "Forgetting that variables are case-sensitive (Name ≠ name)"
+            ],
+            "related_concepts": ["data types", "type conversion", "constants", "naming conventions"]
         }
     },
     "functions": {
         "beginner": {
-            "explanation": "Functions are reusable blocks of code that perform a specific task. They help organize code and avoid repetition.",
+            "explanation": "Functions are reusable blocks of code that perform a specific task. They help organize code and avoid repetition. Define a function with 'def', give it a name, specify parameters in parentheses, and indent the code block. Use 'return' to send a value back.",
             "examples": [
-                "Define a function with def",
-                "Call a function by name",
-                "Return values from functions"
+                "# Simple function\ndef greet(name):\n    return f'Hello, {name}!'\n\nprint(greet('Alice'))  # Hello, Alice!",
+                "# Function with multiple parameters\ndef add(a, b):\n    return a + b\n\nresult = add(5, 3)\nprint(result)  # 8",
+                "# Function with default parameter\ndef greet(name='Guest'):\n    return f'Hello, {name}!'\n\nprint(greet())  # Hello, Guest!\nprint(greet('Bob'))  # Hello, Bob!"
             ],
-            "code_samples": [
-                "# Function definition\ndef greet(name):\n    return f'Hello, {name}!'\n\n# Function call\nmessage = greet('Alice')\nprint(message)  # Hello, Alice!"
-            ]
-        },
-        "intermediate": {
-            "explanation": "Functions can have parameters, return values, and default arguments. Understanding scope is important.",
+            "common_mistakes": [
+                "Forgetting to call the function with parentheses: greet vs greet()",
+                "Not returning a value when you need one",
+                "Confusing parameters (definition) with arguments (actual values)"
+            ],
+            "related_concepts": ["return statement", "parameters vs arguments", "scope", "lambda functions"]
+        }
+    },
+    "lists": {
+        "beginner": {
+            "explanation": "Lists in Python are ordered, mutable collections that can hold items of different types. They're created with square brackets [] and items are separated by commas. Lists are zero-indexed, meaning the first element is at index 0.",
             "examples": [
-                "Default parameters: provide fallback values",
-                "Keyword arguments: call with named parameters",
-                "Scope: local vs global variables in functions"
+                "# Creating lists\nfruits = ['apple', 'banana', 'cherry']\nnumbers = [1, 2, 3, 4, 5]\nmixed = [1, 'hello', True, 3.14]",
+                "# Accessing elements\nfruits = ['apple', 'banana', 'cherry']\nprint(fruits[0])  # apple\nprint(fruits[-1])  # cherry (last item)",
+                "# Modifying lists\nfruits.append('date')  # Add to end\nfruits.insert(1, 'blueberry')  # Insert at position\nfruits.remove('apple')  # Remove specific item\nfruits.pop()  # Remove and return last item"
             ],
-            "code_samples": [
-                "# Default parameters\ndef introduce(name, age=18, city='Unknown'):\n    return f'{name} is {age} years old and lives in {city}'\n\n# Keyword arguments\nresult = introduce(age=25, name='Bob')\n\n# Scope\nglobal_var = 'accessible everywhere'\ndef my_func():\n    local_var = 'only in function'\n    return global_var + ' ' + local_var"
-            ]
-        },
-        "advanced": {
-            "explanation": "Advanced function concepts include decorators, closures, and first-class functions.",
+            "common_mistakes": [
+                "Index out of range errors - trying to access an index that doesn't exist",
+                "Forgetting that lists are mutable - changes affect the original",
+                "Confusion between append() (adds one item) and extend() (adds multiple)"
+            ],
+            "related_concepts": ["list slicing", "list comprehensions", "sorting", "tuples"]
+        }
+    },
+    "conditionals": {
+        "beginner": {
+            "explanation": "Conditional statements (if, elif, else) allow your program to make decisions and execute different code based on conditions. Conditions are expressions that evaluate to True or False. Python uses indentation to define code blocks.",
             "examples": [
-                "Decorators: modify function behavior",
-                "Closures: functions that remember outer scope",
-                "Higher-order functions: functions that take other functions"
+                "# Simple if statement\nage = 18\nif age >= 18:\n    print('You are an adult')",
+                "# if-else\nage = 15\nif age >= 18:\n    print('You are an adult')\nelse:\n    print('You are a minor')",
+                "# if-elif-else\nscore = 85\nif score >= 90:\n    print('Grade: A')\nelif score >= 80:\n    print('Grade: B')\nelif score >= 70:\n    print('Grade: C')\nelse:\n    print('Grade: F')"
             ],
-            "code_samples": [
-                "# Decorator example\ndef timer(func):\n    import time\n    def wrapper(*args, **kwargs):\n        start = time.time()\n        result = func(*args, **kwargs)\n        end = time.time()\n        print(f'{func.__name__} took {end-start:.2f}s')\n        return result\n    return wrapper\n\n@timer\ndef slow_function():\n    import time\n    time.sleep(1)\n    return 'Done'\n\n# Closure example\ndef make_multiplier(n):\n    def multiplier(x):\n        return x * n\n    return multiplier\ndouble = make_multiplier(2)"
-            ]
+            "common_mistakes": [
+                "Using = (assignment) instead of == (comparison)",
+                "Forgetting the colon : after the condition",
+                "Incorrect indentation - Python is strict about this!"
+            ],
+            "related_concepts": ["comparison operators", "logical operators (and, or, not)", "boolean values", "truthiness"]
         }
     }
 }
@@ -143,59 +127,78 @@ async def health_check():
 @app.post("/explain", response_model=ConceptResponse)
 async def explain_concept(request: ConceptRequest):
     """
-    Explain a Python concept with examples tailored to difficulty level
+    Explain a Python concept with examples and common mistakes
     """
-    concept = request.concept.lower().strip()
-    difficulty = request.difficulty_level
+    concept_key = request.concept.lower().strip()
+    difficulty = request.difficulty_level.lower()
 
-    # Validate difficulty level
-    if difficulty not in ["beginner", "intermediate", "advanced"]:
-        difficulty = "intermediate"
+    logger.info(f"Explaining concept: {concept_key} at {difficulty} level")
 
-    # Check if concept exists in knowledge base
-    if concept in CONCEPT_KNOWLEDGE_BASE:
-        concept_data = CONCEPT_KNOWLEDGE_BASE[concept]
+    # Find the concept in the database
+    concept_data = None
 
-        if difficulty in concept_data:
-            data = concept_data[difficulty]
-            return ConceptResponse(
-                concept=concept,
-                explanation=data["explanation"],
-                examples=data["examples"],
-                related_concepts=[k for k in CONCEPT_KNOWLEDGE_BASE.keys() if k != concept][:3],
-                difficulty_level=difficulty,
-                code_samples=data["code_samples"]
-            )
-        else:
-            # If specific difficulty not available, try intermediate then beginner
-            for fallback_difficulty in ["intermediate", "beginner"]:
-                if fallback_difficulty in concept_data:
-                    data = concept_data[fallback_difficulty]
-                    logger.warning(f"Difficulty {difficulty} not available for {concept}, falling back to {fallback_difficulty}")
-                    return ConceptResponse(
-                        concept=concept,
-                        explanation=data["explanation"],
-                        examples=data["examples"],
-                        related_concepts=[k for k in CONCEPT_KNOWLEDGE_BASE.keys() if k != concept][:3],
-                        difficulty_level=fallback_difficulty,
-                        code_samples=data["code_samples"]
-                    )
+    # Try exact match first
+    if concept_key in CONCEPT_DATABASE:
+        concept_data = CONCEPT_DATABASE[concept_key].get(difficulty)
+        # Fallback to beginner if requested difficulty not available
+        if not concept_data:
+            concept_data = CONCEPT_DATABASE[concept_key].get("beginner")
+    else:
+        # Try partial matching
+        for key in CONCEPT_DATABASE.keys():
+            if key in concept_key or concept_key in key:
+                concept_data = CONCEPT_DATABASE[key].get(difficulty)
+                if not concept_data:
+                    concept_data = CONCEPT_DATABASE[key].get("beginner")
+                concept_key = key
+                break
 
-    # If concept not found, provide a generic response
-    logger.warning(f"Concept '{concept}' not found in knowledge base")
+    # If still no match, provide a general response
+    if not concept_data:
+        logger.warning(f"Concept not found: {concept_key}")
+        return ConceptResponse(
+            concept=request.concept,
+            explanation=f"I don't have detailed information about '{request.concept}' yet, but I can help you understand it! Could you provide more context or try rephrasing? For example, if you're asking about loops, try 'explain loops' or 'how do for loops work'.",
+            examples=[
+                "# General Python syntax\nprint('Hello, World!')",
+                "# Variables and basic operations\nx = 10\ny = 20\nresult = x + y\nprint(result)"
+            ],
+            common_mistakes=[
+                "Make sure to check spelling and try common Python terms",
+                "Try asking about: loops, variables, functions, lists, conditionals"
+            ],
+            related_concepts=["Python basics", "data types", "control flow"],
+            difficulty=difficulty
+        )
+
     return ConceptResponse(
-        concept=concept,
-        explanation=f"I don't have specific information about '{concept}' in my knowledge base. Python concepts generally include variables, data types, control structures, functions, classes, and modules.",
-        examples=[f"Study the basics of {concept} in Python documentation"],
-        related_concepts=list(CONCEPT_KNOWLEDGE_BASE.keys())[:3],
-        difficulty_level=difficulty,
-        code_samples=[f"# Example placeholder for {concept}\n# See Python documentation for details"]
+        concept=concept_key,
+        explanation=concept_data["explanation"],
+        examples=concept_data["examples"],
+        common_mistakes=concept_data["common_mistakes"],
+        related_concepts=concept_data["related_concepts"],
+        difficulty=difficulty
     )
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "Concepts Agent - Python Concept Explainer",
+        "endpoints": {
+            "/explain": "POST - Explain a Python concept",
+            "/health": "GET - Health check",
+            "/concepts": "GET - List available concepts"
+        }
+    }
 
 @app.get("/concepts")
 async def list_concepts():
-    """List all available concepts in the knowledge base"""
-    return {"concepts": list(CONCEPT_KNOWLEDGE_BASE.keys())}
+    """List all available concepts"""
+    return {
+        "concepts": list(CONCEPT_DATABASE.keys()),
+        "count": len(CONCEPT_DATABASE)
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,107 @@
+name: Deploy to AWS EKS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: learnflow-cluster
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push images
+        run: |
+          bash aws-deployment/scripts/build-and-push-ecr.sh
+
+      - name: Output image tags
+        run: |
+          echo "triage-agent: ${ECR_REGISTRY}/learnflow/triage-agent:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "concepts-agent: ${ECR_REGISTRY}/learnflow/concepts-agent:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-to-eks:
+    name: Deploy to EKS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Deploy to EKS
+        run: |
+          # Replace placeholders with actual values
+          sed -i "s/ACCOUNT_ID/${{ secrets.AWS_ACCOUNT_ID }}/g" aws-deployment/manifests/*.yaml
+
+          # Apply manifests
+          kubectl apply -f aws-deployment/manifests/namespace.yaml
+          kubectl apply -f aws-deployment/manifests/deployments.yaml
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/triage-agent -n learnflow --timeout=5m
+          kubectl rollout status deployment/concepts-agent -n learnflow --timeout=5m
+          kubectl rollout status deployment/code-review-agent -n learnflow --timeout=5m
+
+      - name: Get service status
+        run: |
+          kubectl get pods -n learnflow
+          kubectl get svc -n learnflow
+
+  notify-argocd:
+    name: Notify ArgoCD
+    needs: deploy-to-eks
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Trigger ArgoCD Sync
+        run: |
+          echo "ArgoCD will automatically sync changes from Git"
+          echo "Access ArgoCD at: https://argocd.learnflow.ai"

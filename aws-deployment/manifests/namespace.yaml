@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: learnflow
+  labels:
+    name: learnflow
+    environment: production
+    project: learnflow-ai-tutor
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: learnflow-sa
+  namespace: learnflow
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/learnflow-eks-role

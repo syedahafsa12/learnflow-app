@@ -1,248 +1,178 @@
 #!/usr/bin/env python3
 """
-MCP Client Script
-This script demonstrates the MCP Code Execution pattern by wrapping MCP calls in scripts
-to reduce token usage while maintaining full functionality.
+MCP Client for Code Execution Pattern
+Demonstrates how to wrap MCP calls in efficient code execution
 """
 
-import subprocess
-import sys
 import json
-import argparse
-from pathlib import Path
+import os
+import sys
+import requests
+from typing import Any, Dict, List, Optional
 
-def run_shell_command(command):
-    """Execute a shell command and return the result."""
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return result.stdout.strip(), result.stderr.strip(), 0
-    except subprocess.CalledProcessError as e:
-        return e.stdout.strip(), e.stderr.strip(), e.returncode
-
-def kubernetes_operation(operation, resource_type, resource_name=None, namespace="default", filters=None):
+class MCPClient:
     """
-    Perform Kubernetes operations via MCP-style calls.
-
-    This function demonstrates the code execution pattern where
-    the MCP interaction happens in the script (outside context),
-    and only minimal results return to the agent.
+    MCP Client that demonstrates the code execution pattern for efficient token usage.
+    Instead of returning large datasets directly to the agent context, this client
+    processes data internally and returns only the necessary results.
     """
-    if operation == "get":
-        if resource_name:
-            cmd = f"kubectl get {resource_type} {resource_name} -n {namespace} -o json"
-        else:
-            cmd = f"kubectl get {resource_type} -n {namespace} -o json"
-
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error getting {resource_type}: {stderr}", False
-
-        try:
-            data = json.loads(stdout)
-
-            # Apply filters if provided
-            if filters and isinstance(data, dict) and 'items' in data:
-                # Filter the items based on provided criteria
-                filtered_items = []
-                for item in data['items']:
-                    matches = True
-                    for key, value in filters.items():
-                        # Navigate nested keys like 'status.phase' or 'metadata.name'
-                        item_value = item
-                        for k in key.split('.'):
-                            item_value = item_value.get(k, {}) if isinstance(item_value, dict) else {}
-
-                        if isinstance(item_value, dict) and value in str(item_value):
-                            continue
-                        elif str(item_value) != str(value):
-                            matches = False
-                            break
-
-                    if matches:
-                        filtered_items.append(item)
-
-                data['items'] = filtered_items
-
-            # Return minimal summary instead of full JSON
-            if resource_name:
-                # Single resource - return simple status
-                if 'status' in data and 'phase' in data['status']:
-                    return f"{resource_type}/{resource_name} in namespace {namespace} is {data['status']['phase']}", True
-                else:
-                    return f"{resource_type}/{resource_name} found in namespace {namespace}", True
-            else:
-                # Multiple resources - return count and brief status
-                if 'items' in data:
-                    items = data['items']
-                    statuses = {}
-                    for item in items:
-                        if 'status' in item and 'phase' in item['status']:
-                            status = item['status']['phase']
-                            statuses[status] = statuses.get(status, 0) + 1
-                        else:
-                            statuses['unknown'] = statuses.get('unknown', 0) + 1
-
-                    status_str = ", ".join([f"{count} {status}" for status, count in statuses.items()])
-                    return f"Found {len(items)} {resource_type} in namespace {namespace}: {status_str}", True
-                else:
-                    return f"Found {resource_type} in namespace {namespace}", True
-
-        except json.JSONDecodeError:
-            # If JSON parsing fails, return a simple success message
-            return f"Retrieved {resource_type} from namespace {namespace}", True
-
-    elif operation == "describe":
-        if not resource_name:
-            return "Resource name required for describe operation", False
-
-        cmd = f"kubectl describe {resource_type} {resource_name} -n {namespace}"
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error describing {resource_type}/{resource_name}: {stderr}", False
-
-        # Return only key information, not full verbose output
-        lines = stdout.split('\n')
-        key_info = []
-        for line in lines:
-            # Extract only important status information
-            if any(keyword in line.lower() for keyword in ['status:', 'phase:', 'ready', 'running', 'error', 'failed']):
-                key_info.append(line.strip())
-
-        if key_info:
-            return f"{resource_type}/{resource_name} status:\n" + "\n".join(key_info[:5]), True  # Limit to 5 lines
-        else:
-            return f"{resource_type}/{resource_name} described successfully", True
-
-def kafka_operation(operation, topic_name=None, namespace="kafka"):
-    """
-    Perform Kafka operations via MCP-style calls.
-    Demonstrates code execution pattern for message queue operations.
-    """
-    if operation == "list_topics":
-        cmd = f"kubectl exec -n {namespace} -it $(kubectl get pods -n {namespace} -l app.kubernetes.io/name=kafka -o jsonpath='{{.items[0].metadata.name}}') -- kafka-topics.sh --list --bootstrap-server localhost:9092"
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error listing Kafka topics: {stderr}", False
-
-        topics = [t.strip() for t in stdout.split('\n') if t.strip()]
-        return f"Found {len(topics)} Kafka topics: {', '.join(topics[:10])}{'...' if len(topics) > 10 else ''}", True
-
-    elif operation == "describe_topic" and topic_name:
-        cmd = f"kubectl exec -n {namespace} -it $(kubectl get pods -n {namespace} -l app.kubernetes.io/name=kafka -o jsonpath='{{.items[0].metadata.name}}') -- kafka-topics.sh --describe --topic {topic_name} --bootstrap-server localhost:9092"
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error describing topic {topic_name}: {stderr}", False
-
-        # Parse and summarize topic info
-        lines = stdout.split('\n')
-        summary = []
-        for line in lines:
-            if 'PartitionCount' in line or 'ReplicationFactor' in line or 'Leader' in line:
-                summary.append(line.strip())
-
-        if summary:
-            return f"Topic {topic_name}:\n" + "\n".join(summary[:3]), True  # Limit to 3 lines
-        else:
-            return f"Topic {topic_name} described", True
-
-def postgresql_operation(operation, query=None, namespace="postgres"):
-    """
-    Perform PostgreSQL operations via MCP-style calls.
-    Demonstrates code execution pattern for database operations.
-    """
-    if operation == "execute_query" and query:
-        # Execute query and return summary
-        cmd = f'''kubectl exec -n {namespace} -it $(kubectl get pods -n {namespace} -l app.kubernetes.io/name=postgresql,app.kubernetes.io/component=primary -o jsonpath='{{.items[0].metadata.name}}') -- bash -c "PGPASSWORD=secretpassword psql -h localhost -U postgres -d learnflow -tAc '{query}'"'''
-
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error executing query: {stderr}", False
-
-        # Return summary of results, not full result set
-        lines = [line.strip() for line in stdout.split('\n') if line.strip()]
-        if len(lines) > 5:
-            return f"Query executed successfully, returning {len(lines)} rows (showing first 5):\n" + "\n".join(lines[:5]) + "\n...", True
-        else:
-            return f"Query executed successfully, returning {len(lines)} rows:\n" + "\n".join(lines), True
-
-    elif operation == "list_tables":
-        cmd = f'''kubectl exec -n {namespace} -it $(kubectl get pods -n {namespace} -l app.kubernetes.io/name=postgresql,app.kubernetes.io/component=primary -o jsonpath='{{.items[0].metadata.name}}') -- bash -c "PGPASSWORD=secretpassword psql -h localhost -U postgres -d learnflow -tAc '\\dt'"'''
-
-        stdout, stderr, code = run_shell_command(cmd)
-
-        if code != 0:
-            return f"Error listing tables: {stderr}", False
-
-        lines = [line.strip() for line in stdout.split('\n') if '|' in line and 'List' not in line]
-        table_names = [line.split('|')[1].strip() for line in lines if line.strip()]
-
-        return f"Found {len(table_names)} tables in learnflow database: {', '.join(table_names[:10])}{'...' if len(table_names) > 10 else ''}", True
+    
+    def __init__(self, server_url: Optional[str] = None):
+        """
+        Initialize the MCP client.
+        
+        Args:
+            server_url: URL of the MCP server. If None, looks for MCP_SERVER_URL env var
+        """
+        self.server_url = server_url or os.environ.get('MCP_SERVER_URL')
+        if not self.server_url:
+            raise ValueError("MCP server URL must be provided either as parameter or MCP_SERVER_URL environment variable")
+    
+    def get_large_dataset(self, dataset_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve a large dataset from MCP server.
+        This would normally return thousands of rows to context, causing token bloat.
+        Instead, we process it here and return only what's needed.
+        """
+        # Simulate MCP call - in real implementation this would call the MCP server
+        print(f"Simulating retrieval of large dataset: {dataset_id}")
+        
+        # Generate sample data to simulate what we might get from MCP
+        sample_data = []
+        for i in range(1000):  # Simulate 1000 records
+            sample_data.append({
+                "id": i,
+                "name": f"Record {i}",
+                "status": "active" if i % 3 != 0 else "inactive",
+                "value": i * 10,
+                "category": f"Category_{i % 10}"
+            })
+        
+        return sample_data
+    
+    def filter_and_summarize(self, dataset_id: str, filter_criteria: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Efficiently filter and summarize a large dataset.
+        Instead of returning all data to agent context, process it here.
+        
+        Args:
+            dataset_id: ID of the dataset to process
+            filter_criteria: Dictionary specifying how to filter the data
+            
+        Returns:
+            Summary of filtered results
+        """
+        print(f"Filtering dataset {dataset_id} with criteria: {filter_criteria}")
+        
+        # Get the dataset
+        full_dataset = self.get_large_dataset(dataset_id)
+        
+        # Apply filtering based on criteria
+        filtered_data = []
+        for record in full_dataset:
+            matches = True
+            for key, value in filter_criteria.items():
+                if key not in record or record[key] != value:
+                    matches = False
+                    break
+            if matches:
+                filtered_data.append(record)
+        
+        # Return only the summary, not the full dataset
+        summary = {
+            "total_records": len(full_dataset),
+            "filtered_count": len(filtered_data),
+            "sample_records": filtered_data[:5],  # Only first 5 records
+            "summary_stats": {
+                "active_count": len([r for r in filtered_data if r.get("status") == "active"]),
+                "inactive_count": len([r for r in filtered_data if r.get("status") == "inactive"]),
+                "avg_value": sum(r.get("value", 0) for r in filtered_data) / max(len(filtered_data), 1)
+            }
+        }
+        
+        return summary
+    
+    def aggregate_data(self, dataset_id: str, group_by_field: str) -> Dict[str, Any]:
+        """
+        Aggregate data by a specific field.
+        Returns grouped statistics instead of raw data.
+        
+        Args:
+            dataset_id: ID of the dataset to process
+            group_by_field: Field to group data by
+            
+        Returns:
+            Aggregated statistics
+        """
+        print(f"Aggregating dataset {dataset_id} by field: {group_by_field}")
+        
+        # Get the dataset
+        full_dataset = self.get_large_dataset(dataset_id)
+        
+        # Group and aggregate
+        groups = {}
+        for record in full_dataset:
+            key = record.get(group_by_field, "unknown")
+            if key not in groups:
+                groups[key] = {
+                    "count": 0,
+                    "values": [],
+                    "active_count": 0
+                }
+            groups[key]["count"] += 1
+            groups[key]["values"].append(record.get("value", 0))
+            if record.get("status") == "active":
+                groups[key]["active_count"] += 1
+        
+        # Calculate aggregates
+        result = {}
+        for key, data in groups.items():
+            result[key] = {
+                "count": data["count"],
+                "active_percentage": (data["active_count"] / data["count"]) * 100,
+                "avg_value": sum(data["values"]) / len(data["values"]) if data["values"] else 0,
+                "max_value": max(data["values"]) if data["values"] else 0,
+                "min_value": min(data["values"]) if data["values"] else 0
+            }
+        
+        return result
 
 def main():
-    parser = argparse.ArgumentParser(description="MCP Client - Code Execution Pattern Demonstration")
-
-    # Common arguments
-    parser.add_argument("--system", required=True, choices=["kubernetes", "kafka", "postgresql"],
-                       help="Target system for MCP operations")
-    parser.add_argument("--operation", required=True,
-                       help="Operation to perform (get, describe, list_topics, execute_query, etc.)")
-
-    # Resource-specific arguments
-    parser.add_argument("--resource-type", help="Resource type (pods, services, etc.)")
-    parser.add_argument("--resource-name", help="Specific resource name")
-    parser.add_argument("--namespace", default="default", help="Kubernetes namespace")
-    parser.add_argument("--topic", help="Kafka topic name")
-    parser.add_argument("--query", help="SQL query to execute")
-    parser.add_argument("--filter", action='append', help="Filter in format key=value")
-
-    args = parser.parse_args()
-
-    # Parse filters
-    filters = {}
-    if args.filter:
-        for f in args.filter:
-            if '=' in f:
-                key, value = f.split('=', 1)
-                filters[key] = value
-
-    # Route to appropriate handler
-    if args.system == "kubernetes":
-        if not args.resource_type:
-            print("Error: --resource-type is required for Kubernetes operations", file=sys.stderr)
-            sys.exit(1)
-
-        result, success = kubernetes_operation(
-            args.operation,
-            args.resource_type,
-            args.resource_name,
-            args.namespace,
-            filters if filters else None
-        )
-
-    elif args.system == "kafka":
-        topic_name = args.topic or args.resource_name
-        result, success = kafka_operation(args.operation, topic_name, args.namespace)
-
-    elif args.system == "postgresql":
-        query = args.query
-        result, success = postgresql_operation(args.operation, query, args.namespace)
-
-    # Output minimal result to context
-    print(result)
-
-    if not success:
-        sys.exit(1)
+    """
+    Main function demonstrating the MCP Code Execution Pattern.
+    Shows how to process large datasets efficiently without bloating context.
+    """
+    print("MCP Code Execution Pattern Demonstration")
+    print("=" * 50)
+    
+    # Initialize client
+    try:
+        client = MCPClient(server_url="http://mock-mcp-server")  # In real use, this would be actual MCP server
+    except ValueError as e:
+        print(f"Error initializing MCP client: {e}")
+        return 1
+    
+    # Example 1: Filter and summarize large dataset (token-efficient approach)
+    print("\n1. Efficient filtering (only summary returned to context):")
+    filter_result = client.filter_and_summarize(
+        dataset_id="student_progress", 
+        filter_criteria={"status": "active"}
+    )
+    print(json.dumps(filter_result, indent=2))
+    
+    # Example 2: Aggregate data by category
+    print("\n2. Data aggregation (only stats returned to context):")
+    agg_result = client.aggregate_data(
+        dataset_id="student_performance",
+        group_by_field="category"
+    )
+    print(json.dumps(agg_result, indent=2))
+    
+    print("\n✓ MCP Code Execution Pattern demonstration completed!")
+    print("Notice: Only summaries and aggregated data returned to context, not full datasets.")
+    print("This significantly reduces token consumption compared to direct MCP calls.")
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

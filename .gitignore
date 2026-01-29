@@ -1,0 +1,24 @@
+# General
+.DS_Store
+*.log
+.env
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node
+node_modules/
+.next/
+dist/
+build/

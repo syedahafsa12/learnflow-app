@@ -1,93 +1,45 @@
-# AGENTS.md Reference Guide
+# AGENTS.md Generator Reference
 
 ## Purpose
-AGENTS.md files help AI agents understand repository structures, conventions, and guidelines so they can work effectively with the codebase.
+The AGENTS.md Generator skill creates comprehensive documentation files that help AI agents understand repository structure, file purposes, and development guidelines.
 
-## Format Specifications
+## Features
+- Automatically analyzes directory structure
+- Identifies important configuration files
+- Categorizes files by type and location
+- Generates standardized documentation format
 
-### Required Sections
-1. **Repository Overview**
-   - Brief description of the project
-   - Main purpose and functionality
-   - Target audience/users
+## Usage Patterns
+### Basic Usage
+```bash
+python scripts/generate_agents_md.py
+```
 
-2. **Directory Structure**
-   ```
-   .
-   ├── src/          # Source code files
-   ├── tests/        # Unit and integration tests
-   ├── docs/         # Documentation files
-   └── config/       # Configuration files
-   ```
+### Target Specific Directory
+```bash
+python scripts/generate_agents_md.py /path/to/repo
+```
 
-3. **Technology Stack**
-   - Languages used (JavaScript, Python, etc.)
-   - Frameworks (React, Express, Django, etc.)
-   - Build tools (Webpack, Maven, etc.)
-   - Testing frameworks (Jest, Pytest, etc.)
+## Customization Options
+- Modify the `skip_patterns` in the script to exclude different file types
+- Adjust the `important_configs` detection to recognize project-specific files
+- Customize the guidelines section based on project requirements
 
-4. **Entry Points**
-   - Main application files
-   - API endpoints
-   - Configuration entry points
-
-5. **Conventions**
-   - Coding standards
-   - Naming conventions
-   - File organization patterns
-   - Branch naming conventions
-
-6. **Special Instructions**
-   - Environment setup
-   - Secret management
-   - Deployment procedures
-   - Common pitfalls
+## Output Format
+The generated AGENTS.md includes:
+- Root-level file listing
+- Configuration file identification
+- Directory structure breakdown
+- File extension descriptions
+- Development guidelines for AI agents
 
 ## Best Practices
-- Keep descriptions concise but informative
-- Use code blocks for directory structures
-- Include file extensions when relevant
-- Mention dependencies and setup requirements
-- Highlight important configuration files
-- Point out any unusual architectural decisions
+- Run this script when starting new projects
+- Regenerate when major structural changes occur
+- Review and customize the output for project-specific needs
+- Include in initial project setup documentation
 
-## Example Template
-```markdown
-# Project Name AGENTS.md
-
-## Overview
-This project does X and serves Y users. It's built with Z technologies.
-
-## Directory Structure
-```
-.
-├── src/              # Source code
-│   ├── components/   # React components
-│   └── utils/        # Utility functions
-├── tests/            # Test files
-├── public/           # Static assets
-└── config/           # Configuration
-```
-
-## Technologies
-- Language: JavaScript (ES6+)
-- Framework: React 18
-- State Management: Redux Toolkit
-- Styling: Tailwind CSS
-- Testing: Jest + React Testing Library
-
-## Entry Points
-- `src/index.js`: Main application entry point
-- `src/App.js`: Root component
-- `public/index.html`: HTML template
-
-## Conventions
-- Component files use PascalCase
-- Utility functions use camelCase
-- Tests are co-located with source files
-
-## Special Instructions
-- Run with `npm start`
-- Secrets stored in `.env.local`
-- Tests run with `npm test`
-```
+## Integration with AI Agents
+- Claude Code can use this to understand project structure
+- Goose can leverage this for guided development
+- Other AI agents can use this as a reference for repository navigation

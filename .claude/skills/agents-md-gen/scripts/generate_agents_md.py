@@ -1,113 +1,107 @@
 #!/usr/bin/env python3
 """
-AGENTS.md Generator Script
-This script analyzes a repository and generates an AGENTS.md file to help AI agents understand the codebase.
+AGENTS.md Generator
+Analyzes repository structure and creates AGENTS.md file for AI agents
 """
 
 import os
 import sys
-import subprocess
+import json
 from pathlib import Path
 
-def get_repo_structure(start_path):
-    """Get the directory structure of the repository."""
-    structure = []
-    for root, dirs, files in os.walk(start_path, topdown=True):
-        # Skip certain directories that shouldn't be in AGENTS.md
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', '.git']]
+def analyze_repo_structure(root_path="."):
+    """Analyze repository structure and return organized information."""
+    structure = {
+        "root_files": [],
+        "directories": {},
+        "important_configs": []
+    }
 
-        level = root.replace(start_path, '').count(os.sep)
-        indent = '    ' * level
-        structure.append(f'{indent}{os.path.basename(root)}/')
-        subindent = '    ' * (level + 1)
+    root = Path(root_path)
+
+    # Walk through the directory
+    for item in root.rglob("*"):
+        if item.is_file():
+            rel_path = str(item.relative_to(root))
+
+            # Skip certain files/directories
+            skip_patterns = ['.git', '__pycache__', '.pyc', 'node_modules', '.venv', 'venv']
+            if any(skip in rel_path for skip in skip_patterns):
+                continue
+
+            # Categorize files
+            if item.name in ['package.json', 'requirements.txt', 'Dockerfile', 'docker-compose.yml',
+                            'README.md', 'CLAUDE.md', '.gitignore', 'skaffold.yaml', 'kustomization.yaml']:
+                structure["important_configs"].append(rel_path)
+            elif '/' not in rel_path:  # Root level files
+                structure["root_files"].append(rel_path)
+            else:  # Files in subdirectories
+                dir_path = '/'.join(rel_path.split('/')[:-1])
+                if dir_path not in structure["directories"]:
+                    structure["directories"][dir_path] = []
+                structure["directories"][dir_path].append(item.name)
+
+    return structure
+
+def generate_agents_md(structure):
+    """Generate AGENTS.md content based on repository structure."""
+    content = "# AGENTS.md\n"
+    content += "Repository structure and guidelines for AI agents\n\n"
+
+    content += "## Root Files\n"
+    for file in structure["root_files"]:
+        content += f"- `{file}`\n"
+    content += "\n"
+
+    content += "## Configuration Files\n"
+    for config in structure["important_configs"]:
+        content += f"- `{config}` - Important configuration file\n"
+    content += "\n"
+
+    content += "## Directory Structure\n"
+    for directory, files in structure["directories"].items():
+        content += f"### {directory}/\n"
         for file in files:
-            if not file.startswith('.'):
-                structure.append(f'{subindent}{file}')
+            content += f"- `{file}`\n"
+        content += "\n"
 
-    return '\n'.join(structure)
+    content += "## File Extensions and Technologies\n"
+    content += "Common file extensions and their purposes in this repository:\n"
+    content += "- `.py`: Python source code\n"
+    content += "- `.js`, `.jsx`: JavaScript/JSX code\n"
+    content += "- `.ts`, `.tsx`: TypeScript/TSX code\n"
+    content += "- `.md`: Documentation files\n"
+    content += "- `.yaml`, `.yml`: Configuration files\n"
+    content += "- `.json`: Data and configuration files\n"
+    content += "- `.sh`: Shell scripts\n"
+    content += "- `.sql`: Database scripts\n\n"
 
-def get_git_info():
-    """Get basic git information about the repository."""
-    try:
-        # Get repository name from git remote
-        result = subprocess.run(['git', 'remote', 'get-url', 'origin'],
-                              capture_output=True, text=True, cwd=os.getcwd())
-        if result.returncode == 0:
-            repo_url = result.stdout.strip()
-            return repo_url.split('/')[-1].replace('.git', '')
-        else:
-            return "Unknown Repository"
-    except:
-        return "Unknown Repository"
-
-def generate_agents_md():
-    """Generate the AGENTS.md content."""
-    repo_name = get_git_info()
-
-    content = f"""# AGENTS.md - {repo_name}
-
-## Repository Overview
-This repository contains the {repo_name} project. The purpose of this codebase is to provide a well-structured application that can be understood and modified by AI agents.
-
-## Directory Structure
-```
-{get_repo_structure('.')}
-```
-
-## Technology Stack
-The project utilizes the following technologies:
-- Language: [Specify languages used in the project]
-- Frameworks: [Specify frameworks used]
-- Dependencies: [List key dependencies]
-
-## Key Files and Directories
-- `README.md`: Project overview and setup instructions
-- `package.json`/`requirements.txt`/`Cargo.toml`: Dependency management
-- Main application files: [Specify main entry points]
-
-## Code Conventions
-- Follow standard conventions for the primary language used
-- Maintain consistent naming patterns
-- Document public functions and classes
-
-## Development Workflow
-- Make changes in feature branches
-- Write tests for new functionality
-- Follow the existing code style
-
-## Testing Strategy
-- Unit tests: [Location of unit tests]
-- Integration tests: [Location of integration tests]
-- Test execution: [Command to run tests]
-
-## Deployment Process
-- Build steps: [Commands to build the project]
-- Deployment targets: [Where and how to deploy]
-
-## Special Instructions for AI Agents
-- When modifying code, maintain backward compatibility where possible
-- Follow the existing patterns and conventions
-- Add documentation for new functions and classes
-- Consider the impact on related components when making changes
-"""
+    content += "## Guidelines for AI Agents\n"
+    content += "1. Respect the existing code style and patterns\n"
+    content += "2. Follow the established architecture and design principles\n"
+    content += "3. Maintain backward compatibility when possible\n"
+    content += "4. Update documentation when making changes\n"
+    content += "5. Consider the impact on related components\n"
 
     return content
 
 def main():
-    """Main function to generate AGENTS.md file."""
-    try:
-        agents_content = generate_agents_md()
+    if len(sys.argv) > 1:
+        repo_path = sys.argv[1]
+    else:
+        repo_path = "."
 
-        # Write to AGENTS.md in the current directory
-        with open('AGENTS.md', 'w', encoding='utf-8') as f:
-            f.write(agents_content)
+    print(f"Analyzing repository structure in {repo_path}...")
+    structure = analyze_repo_structure(repo_path)
 
-        print("✓ AGENTS.md generated successfully!")
-        print("File saved as AGENTS.md in the current directory.")
+    print("Generating AGENTS.md...")
+    agents_md_content = generate_agents_md(structure)
 
-    except Exception as e:
-        print(f"✗ Error generating AGENTS.md: {str(e)}")
-        sys.exit(1)
+    # Write to file
+    with open('AGENTS.md', 'w') as f:
+        f.write(agents_md_content)
+
+    print("✓ AGENTS.md generated successfully!")
 
 if __name__ == "__main__":
     main()

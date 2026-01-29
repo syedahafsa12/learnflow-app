@@ -1,0 +1,64 @@
+# Oracle Container Engine for Kubernetes (OKE) Deployment for LearnFlow
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: learnflow-oke-manifests
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: learnflow-oke
+  template:
+    metadata:
+      labels:
+        app: learnflow-oke
+    spec:
+      containers:
+      - name: deployment-helper
+        image: alpine:latest
+        command: ['sh', '-c', 'echo "OKE deployment configuration for LearnFlow" && sleep 3600']
+
+---
+# Oracle Streaming Service Configuration (replaces Kafka)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-streaming-config
+data:
+  STREAMING_SERVICE_URL: "https://cell-1.streaming.us-ashburn-1.oci.oraclecloud.com"
+  STREAM_COMPARTMENT_ID: "ocid1.compartment.oc1..learnflow-stream-compartment"
+  KAFKA_BOOTSTRAP_SERVERS: ""  # Will be overridden by cloud service
+
+---
+# Oracle Autonomous Database Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-atp-config
+data:
+  ATP_DATABASE_NAME: "learnflowdb_tp"
+  ATP_WALLET_LOCATION: "/wallets/atp-wallet"
+  POSTGRES_HOST: ""  # Oracle DB, not PostgreSQL
+  DATABASE_TYPE: "oracle"
+
+---
+# OKE Load Balancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: learnflow-frontend-lb
+  annotations:
+    service.beta.kubernetes.io/oci-load-balancer-internal: "false"
+    service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
+    service.beta.kubernetes.io/oci-load-balancer-minimum-bandwidth-mbps: "10"
+    service.beta.kubernetes.io/oci-load-balancer-maximum-bandwidth-mbps: "100"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: frontend

@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: triage-agent
-        image: triage-agent:latest
+        image: learnflow1769570588.azurecr.io/triage-agent:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000

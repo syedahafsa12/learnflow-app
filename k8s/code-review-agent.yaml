@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: code-review-agent
-        image: code-review-agent:latest
+        image: learnflow1769570588.azurecr.io/code-review-agent:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000

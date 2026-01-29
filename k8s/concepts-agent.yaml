@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: concepts-agent
-        image: concepts-agent:latest
+        image: learnflow1769570588.azurecr.io/concepts-agent:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000

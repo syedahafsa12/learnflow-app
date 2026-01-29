@@ -1,0 +1,85 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: learnflow-cluster
+  region: us-east-1
+  version: "1.28"
+
+# IAM OIDC & Service Accounts
+iam:
+  withOIDC: true
+  serviceAccounts:
+    - metadata:
+        name: learnflow-sa
+        namespace: learnflow
+      wellKnownPolicies:
+        autoScaler: true
+        externalDNS: true
+        certManager: true
+        imageBuilder: true
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+
+# Node Groups
+managedNodeGroups:
+  - name: learnflow-workers
+    instanceType: t3.medium
+    desiredCapacity: 3
+    minSize: 2
+    maxSize: 5
+    volumeSize: 30
+    volumeType: gp3
+    privateNetworking: false
+    labels:
+      role: worker
+      environment: production
+    tags:
+      nodegroup-name: learnflow-workers
+      Project: LearnFlow
+      Environment: Production
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        externalDNS: true
+        certManager: true
+        ebs: true
+        efs: true
+        albIngress: true
+        cloudWatch: true
+
+# VPC Configuration
+vpc:
+  cidr: 10.0.0.0/16
+  nat:
+    gateway: Single  # Use HighlyAvailable for production
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+
+# Addons
+addons:
+  - name: vpc-cni
+    version: latest
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+    version: latest
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
+# CloudWatch Logging
+cloudWatch:
+  clusterLogging:
+    enableTypes:
+      - api
+      - audit
+      - authenticator
+      - controllerManager
+      - scheduler
+    logRetentionInDays: 7

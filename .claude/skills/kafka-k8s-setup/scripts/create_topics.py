@@ -38,17 +38,17 @@ def create_topic(topic_name, partitions=1, replication_factor=1):
     if not kafka_pod:
         return False
 
-    print(f"🔧 Creating topic '{topic_name}'...")
+    print(f"[*] Creating topic '{topic_name}'...")
 
     cmd = f"kubectl exec -n kafka {kafka_pod} -- kafka-topics.sh --create --topic {topic_name} --bootstrap-server localhost:9092 --partitions {partitions} --replication-factor {replication_factor}"
 
     stdout, stderr, code = run_command(cmd)
 
     if code == 0 or "Created topic" in stdout or "already exists" in stdout:
-        print(f"  ✅ Topic '{topic_name}' created successfully or already exists")
+        print(f"  [+] Topic '{topic_name}' created successfully or already exists")
         return True
     else:
-        print(f"  ❌ Failed to create topic '{topic_name}': {stderr}")
+        print(f"  [-] Failed to create topic '{topic_name}': {stderr}")
         return False
 
 def list_topics():
@@ -57,7 +57,7 @@ def list_topics():
     if not kafka_pod:
         return False
 
-    print("📋 Current topics in Kafka:")
+    print("[i] Current topics in Kafka:")
 
     cmd = f"kubectl exec -n kafka {kafka_pod} -- kafka-topics.sh --list --bootstrap-server localhost:9092"
 
@@ -69,7 +69,7 @@ def list_topics():
             print(f"  - {topic}")
         return True
     else:
-        print(f"  ❌ Failed to list topics: {stderr}")
+        print(f"  [-] Failed to list topics: {stderr}")
         return False
 
 def main():
@@ -85,21 +85,21 @@ def main():
         list_topics()
         return
 
-    print(f"📡 Creating {len(args.topics)} Kafka topic(s)...")
+    print(f"[*] Creating {len(args.topics)} Kafka topic(s)...")
 
     success_count = 0
     for topic in args.topics:
         if create_topic(topic, args.partitions, args.replication_factor):
             success_count += 1
 
-    print(f"\n📊 Summary: {success_count}/{len(args.topics)} topics created successfully")
+    print(f"\n[+] Summary: {success_count}/{len(args.topics)} topics created successfully")
 
     # List topics after creation
-    print("\n📈 Updated topic list:")
+    print("\n[i] Updated topic list:")
     list_topics()
 
     if success_count == len(args.topics):
-        print("\n✅ All topics created successfully!")
+        print("\n[+] All topics created successfully!")
         return 0
     else:
         print(f"\n⚠️  Some topics failed to create ({success_count}/{len(args.topics)} succeeded)")

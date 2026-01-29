@@ -362,5 +362,5 @@ async def list_exercises_by_topic(topic: str):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8004))
+    port = int(os.getenv("PORT", 8002))
     uvicorn.run(app, host="0.0.0.0", port=port)

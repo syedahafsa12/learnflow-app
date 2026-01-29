@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kubectl config:*)",
+      "WebSearch",
+      "Bash(kubectl get:*)",
+      "Bash(dapr:*)",
+      "Bash(minikube status:*)",
+      "Bash(minikube start:*)",
+      "Bash(minikube delete:*)",
+      "Bash(kubectl cluster-info:*)",
+      "Bash(bash scripts/deploy_kafka.sh:*)",
+      "Bash(bash scripts/deploy_postgres.sh:*)",
+      "Bash(bash:*)",
+      "Bash(python scripts/verify_postgres.py:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(helm uninstall:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl create:*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(docker build:*)",
+      "Bash(pkill -f \"minikube\\|docker build\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

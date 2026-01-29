@@ -1,0 +1,61 @@
+# Azure Kubernetes Service (AKS) Deployment for LearnFlow
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: learnflow-aks-manifests
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: learnflow-aks
+  template:
+    metadata:
+      labels:
+        app: learnflow-aks
+    spec:
+      containers:
+      - name: deployment-helper
+        image: alpine:latest
+        command: ['sh', '-c', 'echo "AKS deployment configuration for LearnFlow" && sleep 3600']
+
+---
+# Azure Event Hubs Configuration (replaces Kafka)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-eventhub-config
+data:
+  EVENT_HUB_NAMESPACE: "learnflow-eventhub-ns"
+  EVENT_HUB_NAME: "learnflow-events"
+  KAFKA_BOOTSTRAP_SERVERS: ""  # Will be overridden by cloud service
+
+---
+# Azure Database for PostgreSQL Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-postgres-config
+data:
+  POSTGRES_HOST: "learnflow-postgres.postgres.database.azure.com"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "learnflow"
+  DATABASE_SSL_MODE: "require"
+
+---
+# AKS Service Load Balancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: learnflow-frontend-lb
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: "learnflow-rg"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: frontend
